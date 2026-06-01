@@ -1,0 +1,30 @@
+# ── Node.js (api/) ─────────────────────────────────────────────────────────
+api/node_modules/
+api/.env
+api/*.log
+api/npm-debug.log*
+
+# ── Flutter (app/) ─────────────────────────────────────────────────────────
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+app/ios/.symlinks/
+app/ios/Pods/
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/Flutter.podspec
+app/android/.gradle/
+app/android/captures/
+app/android/local.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+app/*.iml
+app/**/*.iml
+
+# ── General ────────────────────────────────────────────────────────────────
+.DS_Store
+*.log
