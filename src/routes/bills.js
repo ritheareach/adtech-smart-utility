@@ -70,20 +70,42 @@ router.get('/records', async (req, res) => {
   }
 });
 
-// GET /api/bills/monthly-totals?year=YYYY
+// GET /api/bills/monthly-totals
+// Returns the last 12 completed months (rolling window) with labels and totals.
+// due_date is the 6th of the month AFTER the billing month, so subtract 1 month to get consumption month.
 router.get('/monthly-totals', async (req, res) => {
-  const year = parseInt(req.query.year || new Date().getFullYear());
+  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   try {
     const result = await pool.query(
-      `SELECT EXTRACT(MONTH FROM due_date)::int AS month, SUM(amount) AS total
+      `SELECT
+         EXTRACT(YEAR  FROM due_date - INTERVAL '1 month')::int AS yr,
+         EXTRACT(MONTH FROM due_date - INTERVAL '1 month')::int AS mo,
+         SUM(amount) AS total
        FROM bills
-       WHERE user_id = $1 AND EXTRACT(YEAR FROM due_date) = $2
-       GROUP BY month ORDER BY month`,
-      [req.user.userId, year]
+       WHERE user_id = $1
+       GROUP BY yr, mo`,
+      [req.user.userId]
     );
-    const totals = Array(12).fill(0);
-    for (const row of result.rows) totals[row.month - 1] = parseFloat(row.total);
-    res.json({ year, totals });
+
+    const totalsMap = {};
+    for (const row of result.rows) {
+      totalsMap[row.yr * 100 + row.mo] = parseFloat(row.total);
+    }
+
+    // Last 12 completed months ending at the previous month
+    const now = new Date();
+    const points = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - 1 - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      points.push({ label: MONTH_ABBR[m - 1], total: totalsMap[y * 100 + m] ?? 0 });
+    }
+
+    res.json({
+      months: points.map(p => p.label),
+      totals: points.map(p => p.total),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch monthly totals' });

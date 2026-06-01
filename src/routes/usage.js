@@ -24,12 +24,15 @@ router.get('/summary', async (req, res) => {
       [userId]
     );
 
-    // Previous period (month before the latest)
+    // Previous period (month before the latest) — deduplicate BEFORE ranking
     const previous = await pool.query(
-      `WITH ranked AS (
-         SELECT DISTINCT year, month,
+      `WITH distinct_months AS (
+         SELECT DISTINCT year, month FROM usage_readings WHERE user_id = $1
+       ),
+       ranked AS (
+         SELECT year, month,
                 ROW_NUMBER() OVER (ORDER BY year DESC, month DESC) AS rn
-         FROM usage_readings WHERE user_id = $1
+         FROM distinct_months
        )
        SELECT r.type, SUM(r.value) AS value
        FROM usage_readings r
