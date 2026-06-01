@@ -70,15 +70,17 @@ async function seed() {
     await client.query(`DELETE FROM bills WHERE user_id = $1`, [userId]);
     await client.query(`DELETE FROM usage_readings WHERE user_id = $1`, [userId]);
 
-    // ── Build months from Jan 2025 to current month ────────────────────────
+    // ── Build months from Jan 2025 up to (but not including) current month ──
+    // Bills are generated after month-end, so current month has no data yet.
     const now    = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), 1); // first day of current month
     const start  = new Date(2025, 0, 1); // Jan 2025
     const months = [];
-    for (let d = new Date(start); d <= now; d.setMonth(d.getMonth() + 1)) {
+    for (let d = new Date(start); d < cutoff; d.setMonth(d.getMonth() + 1)) {
       months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
     }
 
-    // Current month = unpaid, rest = paid
+    // Last completed month = unpaid (bill issued, not yet paid), rest = paid
     const UNPAID_COUNT = 1;
 
     let billSeq = 1;
