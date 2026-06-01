@@ -12,6 +12,8 @@ class ApiService {
   static const String _base = 'http://192.168.88.208:3001/api';
 
   String? _token;
+  String? _userName;
+  String? _unitNumber;
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -21,6 +23,8 @@ class ApiService {
   void setToken(String token) => _token = token;
   void clearToken() => _token = null;
   bool get isLoggedIn => _token != null;
+  String get userName => _userName ?? 'User';
+  String get unitNumber => _unitNumber ?? '';
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -43,7 +47,19 @@ class ApiService {
     );
     final data = _decode(res);
     if (data['token'] != null) setToken(data['token'] as String);
+    final u = data['user'] as Map<String, dynamic>?;
+    if (u != null) {
+      _userName = u['name'] as String?;
+      _unitNumber = u['unitNumber'] as String?;
+    }
     return data;
+  }
+
+  Future<void> loadUserProfile() async {
+    final res = await http.get(Uri.parse('$_base/auth/me'), headers: _headers);
+    final data = _decode(res);
+    _userName = data['name'] as String?;
+    _unitNumber = data['unitNumber'] as String?;
   }
 
   // ── Bills ─────────────────────────────────────────────────────────────────
@@ -129,14 +145,17 @@ class ApiService {
         .toList();
   }
 
-  Future<List<double>> getMonthlyTotals({int? year}) async {
-    final y = year ?? DateTime.now().year;
+  /// Returns { 'labels': List<String>, 'totals': List<double> } for the last 12 completed months.
+  Future<Map<String, dynamic>> getMonthlyTotals() async {
     final res = await http.get(
-      Uri.parse('$_base/bills/monthly-totals?year=$y'),
+      Uri.parse('$_base/bills/monthly-totals'),
       headers: _headers,
     );
     final data = _decode(res);
-    return (data['totals'] as List).map((v) => double.parse(v.toString())).toList();
+    return {
+      'labels': List<String>.from(data['months'] as List),
+      'totals': (data['totals'] as List).map((v) => double.parse(v.toString())).toList(),
+    };
   }
 
   Future<List<Map<String, dynamic>>> getPaymentHistory() async {

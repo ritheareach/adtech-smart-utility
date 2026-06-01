@@ -18,7 +18,8 @@ class _DashboardTabState extends State<DashboardTab> {
   List<Bill> _bills = [];
   List<UsageSummary> _weekSummaries = [];
   List<UsageSummary> _monthSummaries = [];
-  List<double> _monthlyTotals = List.filled(12, 0);
+  List<String> _chartLabels = [];
+  List<double> _chartTotals = [];
   bool _loading = true;
   String? _error;
 
@@ -33,17 +34,19 @@ class _DashboardTabState extends State<DashboardTab> {
     try {
       final results = await Future.wait<dynamic>([
         ApiService().getCurrentBills(),
-        ApiService().getUsageSummary(period: 'week'),
         ApiService().getUsageSummary(period: 'month'),
         ApiService().getMonthlyTotals(),
+        ApiService().loadUserProfile(),
       ]);
       if (!mounted) return;
+      final chart = results[2] as Map<String, dynamic>;
       setState(() {
-        _bills           = results[0] as List<Bill>;
-        _weekSummaries   = results[1] as List<UsageSummary>;
-        _monthSummaries  = results[2] as List<UsageSummary>;
-        _monthlyTotals   = results[3] as List<double>;
-        _loading         = false;
+        _bills          = results[0] as List<Bill>;
+        _weekSummaries  = results[1] as List<UsageSummary>;
+        _monthSummaries = results[1] as List<UsageSummary>;
+        _chartLabels    = chart['labels'] as List<String>;
+        _chartTotals    = chart['totals'] as List<double>;
+        _loading        = false;
       });
     } catch (e) {
       if (!mounted) return;
@@ -54,9 +57,21 @@ class _DashboardTabState extends State<DashboardTab> {
   @override
   Widget build(BuildContext context) {
     final totalDue = _bills.fold<double>(0, (s, b) => s + b.amount);
-    final nonZero  = _monthlyTotals.where((v) => v > 0).toList();
+    final nonZero  = _chartTotals.where((v) => v > 0).toList();
     final chartMax = nonZero.isEmpty ? 310000.0 : nonZero.reduce((a, b) => a > b ? a : b) * 1.2;
     final chartMin = nonZero.isEmpty ? 0.0 : nonZero.reduce((a, b) => a < b ? a : b) * 0.8;
+
+    // Period label: previous month name (last completed billing month)
+    const _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final _now = DateTime.now();
+    final _prevMonth = _now.month == 1 ? 12 : _now.month - 1;
+    final _prevYear  = _now.month == 1 ? _now.year - 1 : _now.year;
+    final periodLabel = '${_monthNames[_prevMonth - 1]} $_prevYear';
+
+    // Greeting based on time of day
+    final hour = _now.hour;
+    final tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+    final greeting = 'Good $tod, ${ApiService().userName}!';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
@@ -99,23 +114,27 @@ class _DashboardTabState extends State<DashboardTab> {
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [_shadow],
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              AdtechLogo(size: 44),
-                              SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Good Morning, User112!',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    '123 Business Ave, Russey Keo, Phnom Penh',
-                                    style: TextStyle(fontSize: 11, color: AppColors.textGray),
-                                  ),
-                                ],
+                              const AdtechLogo(size: 44),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      greeting,
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      ApiService().unitNumber.isNotEmpty
+                                          ? 'Unit ${ApiService().unitNumber} • Phnom Penh'
+                                          : 'Phnom Penh',
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textGray),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -174,7 +193,7 @@ class _DashboardTabState extends State<DashboardTab> {
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                             childAspectRatio: 1.55,
-                            children: _weekSummaries.map((s) => _UsageCard(summary: s)).toList(),
+                            children: _weekSummaries.map((s) => _UsageCard(summary: s, periodLabel: periodLabel)).toList(),
                           ),
                         const SizedBox(height: 18),
 
@@ -193,8 +212,8 @@ class _DashboardTabState extends State<DashboardTab> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Usage this Month',
-                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                                    Text('Usage — $periodLabel',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
                                     const SizedBox(height: 10),
                                     ..._monthSummaries.map((s) => Padding(
                                       padding: const EdgeInsets.only(bottom: 6),
@@ -293,11 +312,12 @@ class _DashboardTabState extends State<DashboardTab> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              SizedBox(
+                              if (_chartLabels.isNotEmpty) SizedBox(
                                 height: 100,
                                 child: LineChart(
                                   LineChartData(
-                                    minX: 0, maxX: 11,
+                                    minX: 0,
+                                    maxX: (_chartLabels.length - 1).toDouble(),
                                     minY: chartMin, maxY: chartMax,
                                     gridData: const FlGridData(show: false),
                                     borderData: FlBorderData(show: false),
@@ -310,10 +330,11 @@ class _DashboardTabState extends State<DashboardTab> {
                                           showTitles: true,
                                           interval: 1,
                                           getTitlesWidget: (v, _) {
-                                            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                                             final idx = v.toInt();
-                                            if (idx < 0 || idx >= months.length) return const SizedBox();
-                                            return Text(months[idx],
+                                            if (idx < 0 || idx >= _chartLabels.length) return const SizedBox();
+                                            // Skip odd indices to avoid crowding
+                                            if (idx % 2 != 0) return const SizedBox();
+                                            return Text(_chartLabels[idx],
                                                 style: const TextStyle(fontSize: 9, color: AppColors.textGray));
                                           },
                                         ),
@@ -321,7 +342,8 @@ class _DashboardTabState extends State<DashboardTab> {
                                     ),
                                     lineBarsData: [
                                       LineChartBarData(
-                                        spots: List.generate(12, (i) => FlSpot(i.toDouble(), _monthlyTotals[i])),
+                                        spots: List.generate(_chartLabels.length, (i) =>
+                                            FlSpot(i.toDouble(), _chartTotals[i])),
                                         isCurved: true,
                                         color: AppColors.green,
                                         barWidth: 2,
@@ -386,7 +408,8 @@ class _DashboardTabState extends State<DashboardTab> {
 
 class _UsageCard extends StatelessWidget {
   final UsageSummary summary;
-  const _UsageCard({required this.summary});
+  final String periodLabel;
+  const _UsageCard({required this.summary, this.periodLabel = 'Last month'});
 
   @override
   Widget build(BuildContext context) {
@@ -415,7 +438,7 @@ class _UsageCard extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Text('This month', style: TextStyle(fontSize: 10, color: AppColors.textGray)),
+              Text(periodLabel, style: const TextStyle(fontSize: 10, color: AppColors.textGray)),
               const SizedBox(width: 4),
               Icon(
                 summary.isUp ? Icons.arrow_upward : Icons.arrow_downward,
