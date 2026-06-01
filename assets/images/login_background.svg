@@ -1,0 +1,85 @@
+<svg width="1170" height="2532" viewBox="0 0 1170 2532" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1170" y2="2532" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF6F8"/>
+      <stop offset="1" stop-color="#FDECEF"/>
+    </linearGradient>
+
+    <linearGradient id="swooshA" x1="120" y1="20" x2="1110" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFEFF3"/>
+      <stop offset="1" stop-color="#FCDDE4"/>
+    </linearGradient>
+
+    <linearGradient id="swooshB" x1="0" y1="860" x2="1170" y2="1350" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FADBE3"/>
+      <stop offset="1" stop-color="#F3C6D2"/>
+    </linearGradient>
+
+    <linearGradient id="building" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D98A9F" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#9F2F48" stop-opacity="0.28"/>
+    </linearGradient>
+
+    <linearGradient id="tree" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C35A75"/>
+      <stop offset="1" stop-color="#8C2139"/>
+    </linearGradient>
+
+    <linearGradient id="water" x1="585" y1="1580" x2="585" y2="1690" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E8B6C3" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#CF6C84" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1170" height="2532" fill="url(#bg)"/>
+
+  <path d="M654 130C812 210 948 228 1170 120V1178H0V798C180 760 268 814 398 918C526 1020 662 1028 820 942C968 860 1088 768 1170 742V120C1038 186 886 248 654 130Z" fill="url(#swooshA)"/>
+
+  <path d="M-120 1260C66 1138 250 1118 448 1186C620 1244 748 1252 904 1192C1024 1146 1116 1100 1290 1142V1668H-120V1260Z" fill="url(#swooshB)"/>
+
+  <g opacity="0.82">
+    <rect x="58"   y="1178" width="130" height="402" fill="url(#building)"/>
+    <rect x="222"  y="1318" width="82"  height="262" fill="url(#building)"/>
+    <rect x="328"  y="1260" width="68"  height="320" fill="url(#building)"/>
+    <rect x="420"  y="1334" width="52"  height="246" fill="url(#building)"/>
+    <rect x="500"  y="1288" width="74"  height="292" fill="url(#building)"/>
+    <rect x="602"  y="1346" width="60"  height="234" fill="url(#building)"/>
+    <rect x="688"  y="1240" width="92"  height="340" fill="url(#building)"/>
+    <rect x="808"  y="1322" width="64"  height="258" fill="url(#building)"/>
+    <rect x="896"  y="1266" width="84"  height="314" fill="url(#building)"/>
+    <rect x="1008" y="1198" width="122" height="382" fill="url(#building)"/>
+  </g>
+
+  <g opacity="0.42" fill="#B65A72">
+    <rect x="86"   y="1240" width="10" height="300"/>
+    <rect x="112"  y="1240" width="10" height="300"/>
+    <rect x="138"  y="1240" width="10" height="300"/>
+    <rect x="246"  y="1360" width="8"  height="180"/>
+    <rect x="264"  y="1360" width="8"  height="180"/>
+    <rect x="700"  y="1286" width="9"  height="254"/>
+    <rect x="720"  y="1286" width="9"  height="254"/>
+    <rect x="740"  y="1286" width="9"  height="254"/>
+    <rect x="1042" y="1258" width="11" height="282"/>
+    <rect x="1070" y="1258" width="11" height="282"/>
+  </g>
+
+  <rect x="0" y="1580" width="1170" height="110" fill="url(#water)"/>
+
+  <g opacity="0.9">
+    <rect x="126" y="1508" width="8" height="84" rx="4" fill="#8F3A50"/>
+    <ellipse cx="130" cy="1480" rx="34" ry="36" fill="url(#tree)"/>
+    <ellipse cx="108" cy="1492" rx="22" ry="24" fill="url(#tree)"/>
+    <ellipse cx="152" cy="1490" rx="20" ry="22" fill="url(#tree)"/>
+
+    <rect x="932" y="1516" width="8" height="74" rx="4" fill="#8F3A50"/>
+    <ellipse cx="936" cy="1492" rx="30" ry="32" fill="url(#tree)"/>
+    <ellipse cx="916" cy="1500" rx="20" ry="20" fill="url(#tree)"/>
+    <ellipse cx="956" cy="1498" rx="18" ry="19" fill="url(#tree)"/>
+
+    <rect x="312" y="1532" width="6" height="58" rx="3" fill="#9A4C60"/>
+    <ellipse cx="315" cy="1516" rx="18" ry="18" fill="url(#tree)" opacity="0.82"/>
+
+    <rect x="768" y="1534" width="6" height="56" rx="3" fill="#9A4C60"/>
+    <ellipse cx="771" cy="1520" rx="16" ry="16" fill="url(#tree)" opacity="0.82"/>
+  </g>
+</svg>
