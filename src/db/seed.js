@@ -92,8 +92,8 @@ async function seed() {
       const isUnpaid = mi >= months.length - UNPAID_COUNT;
       const status = isUnpaid ? 'unpaid' : 'paid';
 
-      // Due date = 6th of the following month
-      const dueDate = new Date(year, month, 6); // month here is already +1 from month index
+      // Due date = 15th of the following month (2 weeks after bill is issued on the 1st)
+      const dueDate = new Date(year, month, 15); // month here is already +1 from month index
       const yy = String(year).slice(2);
       const mm = String(month).padStart(2, '0');
       const periodLabel = `${new Date(year, mIdx).toLocaleString('en', { month: 'short' })} ${year}`;
@@ -110,7 +110,8 @@ async function seed() {
           INSERT INTO bills (id, user_id, type, period, amount, usage, unit, due_date, status)
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
           ON CONFLICT (id) DO UPDATE
-            SET amount = EXCLUDED.amount, usage = EXCLUDED.usage, status = EXCLUDED.status
+            SET amount = EXCLUDED.amount, usage = EXCLUDED.usage,
+                due_date = EXCLUDED.due_date, status = EXCLUDED.status
         `, [id, userId, type, periodLabel, amount, usage, base.unit, dueDate.toISOString().split('T')[0], status]);
 
         // Usage reading
@@ -122,6 +123,53 @@ async function seed() {
       }
     }
 
+    // ── Seed notification_reads ──────────────────────────────────────────────
+    // Reset all reads for this user, then pre-mark older notifications as read
+    // so the app only surfaces fresh, relevant notifications on first login.
+    await client.query(`DELETE FROM notification_reads WHERE user_id = $1`, [userId]);
+
+    const RECENT_UNREAD_PERIODS = 2; // keep the 2 most recently paid periods unread
+
+    // payment_confirmed: mark all paid bills read except the last RECENT_UNREAD_PERIODS periods
+    await client.query(`
+      INSERT INTO notification_reads (user_id, notif_id)
+      SELECT $1, 'notif-paid-' || id
+      FROM bills
+      WHERE user_id = $1 AND status = 'paid'
+        AND period NOT IN (
+          SELECT period FROM bills WHERE user_id = $1 AND status = 'paid'
+          GROUP BY period ORDER BY MAX(due_date) DESC LIMIT $2
+        )
+      ON CONFLICT DO NOTHING
+    `, [userId, RECENT_UNREAD_PERIODS]);
+
+    // bill_generated: mark all periods read except the latest (most recent billing month)
+    const { rows: oldPeriods } = await client.query(`
+      SELECT period FROM bills WHERE user_id = $1
+      GROUP BY period ORDER BY MAX(due_date) DESC OFFSET 1
+    `, [userId]);
+    for (const { period } of oldPeriods) {
+      await client.query(
+        `INSERT INTO notification_reads (user_id, notif_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [userId, `notif-new-${period.replace(/ /g, '-')}`]
+      );
+    }
+
+    // usage alerts: mark all read except the most recent reading per type
+    const { rows: usageAll } = await client.query(`
+      SELECT type, year, month,
+             ROW_NUMBER() OVER (PARTITION BY type ORDER BY year DESC, month DESC) AS rn
+      FROM usage_readings WHERE user_id = $1
+    `, [userId]);
+    for (const r of usageAll) {
+      if (parseInt(r.rn) > 1) {
+        await client.query(
+          `INSERT INTO notification_reads (user_id, notif_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [userId, `notif-usage-${r.type}-${r.year}-${r.month}`]
+        );
+      }
+    }
+
     await client.query('COMMIT');
 
     const totalBills = months.length * TYPES.length;
@@ -129,6 +177,7 @@ async function seed() {
     console.log(`  Months: ${months[0].year}/${months[0].month} → ${months[months.length-1].year}/${months[months.length-1].month}`);
     console.log(`  Unpaid: last ${UNPAID_COUNT} month(s)`);
     console.log(`  User id: ${userId}`);
+    console.log(`  Notification reads seeded (last ${RECENT_UNREAD_PERIODS} paid months + latest bill/usage left unread)`);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Seed failed:', err.message);

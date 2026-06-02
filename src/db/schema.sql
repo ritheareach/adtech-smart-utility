@@ -75,3 +75,13 @@ CREATE TABLE IF NOT EXISTS usage_readings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_usage_user_year ON usage_readings(user_id, year);
+
+-- Tracks which dynamically-generated notification IDs a user has read
+CREATE TABLE IF NOT EXISTS notification_reads (
+  user_id  INTEGER      REFERENCES users(id) ON DELETE CASCADE,
+  notif_id VARCHAR(150) NOT NULL,
+  read_at  TIMESTAMPTZ  DEFAULT NOW(),
+  PRIMARY KEY (user_id, notif_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notif_reads_user ON notification_reads(user_id);
