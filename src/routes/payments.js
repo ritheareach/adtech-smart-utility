@@ -70,26 +70,60 @@ router.post('/webhook', express.urlencoded({ extended: true }), async (req, res)
   }
 });
 
+// POST /api/payments/sandbox/complete
+// Sandbox-only: directly marks bills as paid without a real PayWay transaction.
+// Blocked in production via NODE_ENV check.
+router.post('/sandbox/complete', requireAuth, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  const { bill_ids = [] } = req.body;
+  if (!bill_ids.length) return res.status(400).json({ error: 'bill_ids required' });
+
+  try {
+    const result = await pool.query(
+      `UPDATE bills SET status = 'paid'
+       WHERE id = ANY($1::varchar[]) AND user_id = $2
+       RETURNING id`,
+      [bill_ids, req.user.userId]
+    );
+    res.json({ success: true, updated: result.rowCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // All routes below require authentication
 router.use(requireAuth);
 
 // POST /api/payments
-// Body: { tran_id, amount, currency, payment_option, bill_ids: [] }
-// Creates a pending transaction record linked to the specified bills.
+// Body: { tran_id, amount, currency, payment_option, bill_ids: [], paid?: bool }
+// Creates (or upserts) a transaction linked to the specified bills.
+// Pass paid:true after PayWay confirms success to mark the transaction and bills as paid
+// in the same request — used as the client-side fallback when the PayWay webhook
+// cannot reach the server (e.g. local dev environment).
 router.post('/', async (req, res) => {
-  const { tran_id, amount, currency = 'USD', payment_option, bill_ids = [] } = req.body;
+  const { tran_id, amount, currency = 'KHR', payment_option, bill_ids = [], paid = false } = req.body;
   if (!tran_id || !amount) return res.status(400).json({ error: 'tran_id and amount are required' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
+    const txStatus = paid ? 'success' : 'pending';
+    const paidAt   = paid ? new Date() : null;
+
     const txRes = await client.query(
-      `INSERT INTO transactions (user_id, tran_id, amount, currency, payment_option)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (tran_id) DO UPDATE SET amount = EXCLUDED.amount
+      `INSERT INTO transactions (user_id, tran_id, amount, currency, payment_option, status, paid_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (tran_id) DO UPDATE SET
+         amount   = EXCLUDED.amount,
+         status   = CASE WHEN transactions.status <> 'success' THEN EXCLUDED.status
+                         ELSE transactions.status END,
+         paid_at  = COALESCE(transactions.paid_at, EXCLUDED.paid_at)
        RETURNING id`,
-      [req.user.userId, tran_id, amount, currency, payment_option]
+      [req.user.userId, tran_id, amount, currency, payment_option, txStatus, paidAt]
     );
     const txId = txRes.rows[0].id;
 
@@ -97,6 +131,14 @@ router.post('/', async (req, res) => {
       await client.query(
         `INSERT INTO bill_payments (bill_id, transaction_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
         [billId, txId]
+      );
+    }
+
+    if (paid) {
+      await client.query(
+        `UPDATE bills SET status = 'paid'
+         WHERE id IN (SELECT bill_id FROM bill_payments WHERE transaction_id = $1)`,
+        [txId]
       );
     }
 
