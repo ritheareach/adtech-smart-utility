@@ -1,130 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/config/app_colors.dart';
+import '../../models/notification_item.dart';
+import '../../viewmodels/notifications_viewmodel.dart';
 
-class NotificationsTab extends StatelessWidget {
+class NotificationsTab extends StatefulWidget {
   const NotificationsTab({super.key});
 
-  static const _items = [
-    _NotifItem(
-      icon: Icons.warning_amber_rounded,
-      color: AppColors.orange,
-      bgColor: Color(0xFFFFF7ED),
-      title: 'Payment Due Soon',
-      body: 'Your May 2025 bill of ៛247,500 is due in 8 days.',
-      time: '2 hours ago',
-      unread: true,
-    ),
-    _NotifItem(
-      icon: Icons.receipt_long,
-      color: AppColors.primaryLight,
-      bgColor: Color(0xFFEFF6FF),
-      title: 'New Bill Generated',
-      body: 'Your May 2025 utility bill has been generated.',
-      time: '1 day ago',
-      unread: true,
-    ),
-    _NotifItem(
-      icon: Icons.check_circle,
-      color: AppColors.green,
-      bgColor: Color(0xFFF0FDF4),
-      title: 'Payment Confirmed',
-      body: 'Your Apr 2025 bill payment of ៛199,500 was successful.',
-      time: '32 days ago',
-      unread: false,
-    ),
-    _NotifItem(
-      icon: Icons.bolt,
-      color: AppColors.electricity,
-      bgColor: Color(0xFFFFFBEB),
-      title: 'High Electricity Usage',
-      body: 'Your electricity usage is 0.2% higher than last month.',
-      time: '5 days ago',
-      unread: false,
-    ),
-    _NotifItem(
-      icon: Icons.water_drop,
-      color: AppColors.water,
-      bgColor: Color(0xFFEFF6FF),
-      title: 'Water Usage Alert',
-      body: 'Water usage increased by 5.6% compared to last week.',
-      time: '6 days ago',
-      unread: false,
-    ),
-  ];
+  @override
+  State<NotificationsTab> createState() => _NotificationsTabState();
+}
+
+class _NotificationsTabState extends State<NotificationsTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationsViewModel>().load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Notifications',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: () {},
-            child: const Text('Mark all read',
-                style: TextStyle(fontSize: 12, color: AppColors.primaryLight)),
+    return Consumer<NotificationsViewModel>(
+      builder: (context, vm, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: const Text('Notifications',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                    color: AppColors.textDark)),
+            centerTitle: true,
+            actions: [
+              if (vm.hasUnread)
+                TextButton(
+                  onPressed: vm.markAllRead,
+                  child: const Text('Mark all read',
+                      style: TextStyle(fontSize: 12, color: AppColors.primaryLight)),
+                ),
+            ],
           ),
-        ],
-      ),
-      body: ListView.separated(
+          body: _buildBody(context, vm),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(BuildContext context, NotificationsViewModel vm) {
+    if (vm.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (vm.error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_outlined, size: 48, color: AppColors.textGray),
+              const SizedBox(height: 12),
+              Text(vm.error!, textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: AppColors.textGray)),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: vm.load,
+                style: FilledButton.styleFrom(backgroundColor: AppColors.primaryLight),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (vm.items.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.notifications_none_outlined, size: 56, color: AppColors.textGray),
+            SizedBox(height: 12),
+            Text('No notifications yet',
+                style: TextStyle(fontSize: 14, color: AppColors.textGray)),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: vm.load,
+      child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: _items.length,
+        itemCount: vm.items.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (_, i) {
-          final item = _items[i];
-          return Container(
-            decoration: BoxDecoration(
-              color: item.unread ? const Color(0xFFF0F7FF) : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: item.unread
-                  ? Border.all(color: AppColors.primaryLight.withValues(alpha: 0.25))
-                  : null,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 8, offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(14),
-              leading: Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(color: item.bgColor, shape: BoxShape.circle),
-                child: Icon(item.icon, color: item.color, size: 22),
-              ),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(item.title,
-                        style: TextStyle(fontSize: 13,
-                            fontWeight: item.unread ? FontWeight.bold : FontWeight.w600,
-                            color: AppColors.textDark)),
-                  ),
-                  if (item.unread)
-                    Container(
-                      width: 8, height: 8,
-                      decoration: const BoxDecoration(
-                          color: AppColors.primaryLight, shape: BoxShape.circle),
-                    ),
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(item.body,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textGray, height: 1.4)),
-                  const SizedBox(height: 4),
-                  Text(item.time,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textGray)),
-                ],
-              ),
-            ),
+          final item = vm.items[i];
+          return _NotifCard(
+            item: item,
+            onTap: () => vm.markRead(item.id),
           );
         },
       ),
@@ -132,17 +108,119 @@ class NotificationsTab extends StatelessWidget {
   }
 }
 
-class _NotifItem {
-  final IconData icon;
-  final Color color;
-  final Color bgColor;
-  final String title;
-  final String body;
-  final String time;
-  final bool unread;
+class _NotifCard extends StatelessWidget {
+  final NotificationItem item;
+  final VoidCallback onTap;
+  const _NotifCard({required this.item, required this.onTap});
 
-  const _NotifItem({
-    required this.icon, required this.color, required this.bgColor,
-    required this.title, required this.body, required this.time, required this.unread,
-  });
+  @override
+  Widget build(BuildContext context) {
+    final color = _colorForType(item.type);
+    final bgColor = _bgColorForType(item.type);
+    final icon = _iconForType(item.type);
+    final time = _relativeTime(item.createdAt);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: item.read ? Colors.white : const Color(0xFFF0F7FF),
+          borderRadius: BorderRadius.circular(14),
+          border: item.read
+              ? null
+              : Border.all(color: AppColors.primaryLight.withValues(alpha: 0.25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8, offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(14),
+          leading: Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(item.title,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: item.read ? FontWeight.w600 : FontWeight.bold,
+                        color: AppColors.textDark)),
+              ),
+              if (!item.read)
+                Container(
+                  width: 8, height: 8,
+                  decoration: const BoxDecoration(
+                      color: AppColors.primaryLight, shape: BoxShape.circle),
+                ),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              Text(item.body,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textGray, height: 1.4)),
+              const SizedBox(height: 4),
+              Text(time,
+                  style: const TextStyle(fontSize: 11, color: AppColors.textGray)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _relativeTime(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.isNegative || diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 30) return '${diff.inDays} day${diff.inDays == 1 ? '' : 's'} ago';
+    final months = diff.inDays ~/ 30;
+    return '$months month${months == 1 ? '' : 's'} ago';
+  }
+
+  static IconData _iconForType(String type) {
+    switch (type) {
+      case 'payment_due': return Icons.warning_amber_rounded;
+      case 'payment_overdue': return Icons.error_rounded;
+      case 'bill_generated': return Icons.receipt_long;
+      case 'payment_confirmed': return Icons.check_circle;
+      case 'usage_high': return Icons.trending_up;
+      case 'usage_low': return Icons.trending_down;
+      default: return Icons.notifications;
+    }
+  }
+
+  static Color _colorForType(String type) {
+    switch (type) {
+      case 'payment_due': return AppColors.orange;
+      case 'payment_overdue': return AppColors.red;
+      case 'bill_generated': return AppColors.primaryLight;
+      case 'payment_confirmed': return AppColors.green;
+      case 'usage_high': return AppColors.electricity;
+      case 'usage_low': return AppColors.green;
+      default: return AppColors.textGray;
+    }
+  }
+
+  static Color _bgColorForType(String type) {
+    switch (type) {
+      case 'payment_due': return const Color(0xFFFFF7ED);
+      case 'payment_overdue': return const Color(0xFFFEF2F2);
+      case 'bill_generated': return const Color(0xFFEFF6FF);
+      case 'payment_confirmed': return const Color(0xFFF0FDF4);
+      case 'usage_high': return const Color(0xFFFFFBEB);
+      case 'usage_low': return const Color(0xFFF0FDF4);
+      default: return const Color(0xFFF3F4F6);
+    }
+  }
 }

@@ -11,10 +11,10 @@ import '../../core/services/payway_service.dart';
 import 'payment_result_screen.dart';
 
 class KhqrScreen extends StatefulWidget {
-  final Bill bill;
+  final List<Bill> bills;
   final String method;
 
-  const KhqrScreen({super.key, required this.bill, required this.method});
+  const KhqrScreen({super.key, required this.bills, required this.method});
 
   @override
   State<KhqrScreen> createState() => _KhqrScreenState();
@@ -28,6 +28,9 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
   Timer? _pollTimer;
   int _pollCount = 0;
   static const int _maxPolls = 60;
+
+  double get _totalAmount => widget.bills.fold(0.0, (s, b) => s + b.amount);
+  List<String> get _billIds => widget.bills.map((b) => b.id).toList();
 
   String get _paymentOption {
     switch (widget.method) {
@@ -67,13 +70,13 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
     try {
       final checkout = await PayWayService().createTransaction(
         tranId: _tranId,
-        amount: widget.bill.amount,
+        amount: _totalAmount,
         firstName: 'ADTech',
         lastName: 'Customer',
         phone: '012000000',
         paymentOption: _paymentOption,
         currency: 'KHR',
-        returnParams: widget.bill.id,
+        returnParams: _billIds.join(','),
       );
       setState(() { _checkout = checkout; _loading = false; });
       _startPolling();
@@ -135,8 +138,8 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
     if (success) {
       syncError = await context.read<PaymentViewModel>().recordPayment(
         tranId: _tranId,
-        amount: widget.bill.amount,
-        billIds: [widget.bill.id],
+        amount: _totalAmount,
+        billIds: _billIds,
         paymentOption: _paymentOption,
       );
     }
@@ -145,8 +148,8 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
       builder: (_) => PaymentResultScreen(
         success: success,
         tranId: _tranId,
-        total: widget.bill.amount,
-        bills: [widget.bill],
+        total: _totalAmount,
+        bills: widget.bills,
         syncError: syncError,
       ),
     ));
@@ -250,7 +253,8 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
     }
     return _CheckoutView(
       checkout: _checkout!,
-      bill: widget.bill,
+      bills: widget.bills,
+      totalAmount: _totalAmount,
       method: widget.method,
       accentColor: _accentColor,
       instruction: _instruction,
@@ -261,15 +265,15 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
         _pollTimer?.cancel();
         setState(() => _loading = true);
         final vm = context.read<PaymentViewModel>();
-        final sandboxError = await vm.sandboxComplete([widget.bill.id]);
+        final sandboxError = await vm.sandboxComplete(_billIds);
         if (!mounted) return;
         if (sandboxError == null) {
           Navigator.pushReplacement(context, MaterialPageRoute(
             builder: (_) => PaymentResultScreen(
               success: true,
               tranId: _tranId,
-              total: widget.bill.amount,
-              bills: [widget.bill],
+              total: _totalAmount,
+              bills: widget.bills,
             ),
           ));
         } else {
@@ -284,7 +288,8 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
 
 class _CheckoutView extends StatelessWidget {
   final PayWayCheckout checkout;
-  final Bill bill;
+  final List<Bill> bills;
+  final double totalAmount;
   final String method;
   final Color accentColor;
   final String instruction;
@@ -295,8 +300,8 @@ class _CheckoutView extends StatelessWidget {
   final VoidCallback onCancel;
 
   const _CheckoutView({
-    required this.checkout, required this.bill, required this.method,
-    required this.accentColor, required this.instruction,
+    required this.checkout, required this.bills, required this.totalAmount,
+    required this.method, required this.accentColor, required this.instruction,
     required this.pollCount, required this.maxPolls,
     this.onOpenAba, required this.onSimulate, required this.onCancel,
   });
@@ -318,14 +323,31 @@ class _CheckoutView extends StatelessWidget {
             ),
             child: Column(
               children: [
-                const Text('Amount to Pay',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+                Text(
+                  bills.length > 1 ? 'Total Amount (${bills.length} bills)' : 'Amount to Pay',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
                 const SizedBox(height: 4),
-                Text('${_fmtKhr(bill.amount)} ៛',
+                Text('${_fmtKhr(totalAmount)} ៛',
                     style: const TextStyle(color: Colors.white, fontSize: 30,
                         fontWeight: FontWeight.bold)),
-                Text('≈ \$${(bill.amount / 4100).toStringAsFixed(2)} USD',
+                Text('≈ \$${(totalAmount / 4100).toStringAsFixed(2)} USD',
                     style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                if (bills.length > 1) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    children: bills.map((b) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(b.type,
+                          style: const TextStyle(color: Colors.white, fontSize: 11)),
+                    )).toList(),
+                  ),
+                ],
               ],
             ),
           ),

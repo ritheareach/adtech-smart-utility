@@ -44,7 +44,11 @@ class PaymentReceiptScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.textDark),
-            onPressed: () {},
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Share coming soon'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: Duration(seconds: 2)),
+            ),
           ),
         ],
       ),
@@ -220,7 +224,11 @@ class PaymentReceiptScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () {},
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('PDF download coming soon'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 2)),
+                ),
                 icon: const Icon(Icons.download_outlined, size: 18),
                 label: const Text('Download Receipt',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),

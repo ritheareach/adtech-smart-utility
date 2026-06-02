@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/config/app_colors.dart';
 import '../../models/bill.dart';
+import '../../viewmodels/bills_viewmodel.dart';
+import '../../viewmodels/dashboard_viewmodel.dart';
+import '../../viewmodels/notifications_viewmodel.dart';
 import '../../viewmodels/payment_viewmodel.dart';
 import '../home/home_screen.dart';
 
@@ -183,11 +186,20 @@ class _PaymentResultScreenState extends State<PaymentResultScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                    (_) => false,
-                  ),
+                  onPressed: () {
+                    if (widget.success) {
+                      final paidIds = widget.bills.map((b) => b.id).toList();
+                      context.read<DashboardViewModel>().removePaidBills(paidIds);
+                      context.read<DashboardViewModel>().load();
+                      context.read<BillsViewModel>().load();
+                      context.read<NotificationsViewModel>().load();
+                    }
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HomeScreen()),
+                      (_) => false,
+                    );
+                  },
                   style: FilledButton.styleFrom(
                     backgroundColor: widget.success ? AppColors.primaryLight : AppColors.textGray,
                     padding: const EdgeInsets.symmetric(vertical: 14),

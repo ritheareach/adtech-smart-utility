@@ -9,8 +9,8 @@ import '../../core/services/payway_service.dart';
 import 'payment_result_screen.dart';
 
 class CardPaymentScreen extends StatefulWidget {
-  final Bill bill;
-  const CardPaymentScreen({super.key, required this.bill});
+  final List<Bill> bills;
+  const CardPaymentScreen({super.key, required this.bills});
 
   @override
   State<CardPaymentScreen> createState() => _CardPaymentScreenState();
@@ -21,6 +21,9 @@ class _CardPaymentScreenState extends State<CardPaymentScreen> {
   late final WebViewController _controller;
   bool _loading = true;
   bool _preparing = true;
+
+  double get _totalAmount => widget.bills.fold(0.0, (s, b) => s + b.amount);
+  List<String> get _billIds => widget.bills.map((b) => b.id).toList();
 
   @override
   void initState() {
@@ -49,12 +52,12 @@ class _CardPaymentScreenState extends State<CardPaymentScreen> {
     try {
       final html = await PayWayService().buildCardCheckoutHtmlAsync(
         tranId: _tranId,
-        amount: widget.bill.amount,
+        amount: _totalAmount,
         firstName: 'ADTech',
         lastName: 'Customer',
         phone: '012000000',
         currency: 'KHR',
-        returnParams: widget.bill.id,
+        returnParams: _billIds.join(','),
       );
       await _controller.loadHtmlString(
         html,
@@ -83,8 +86,8 @@ class _CardPaymentScreenState extends State<CardPaymentScreen> {
     if (success) {
       syncError = await context.read<PaymentViewModel>().recordPayment(
         tranId: _tranId,
-        amount: widget.bill.amount,
-        billIds: [widget.bill.id],
+        amount: _totalAmount,
+        billIds: _billIds,
       );
     }
     if (!mounted) return;
@@ -93,8 +96,8 @@ class _CardPaymentScreenState extends State<CardPaymentScreen> {
         success: success,
         tranId: _tranId,
         approvalCode: apv,
-        total: widget.bill.amount,
-        bills: [widget.bill],
+        total: _totalAmount,
+        bills: widget.bills,
         syncError: syncError,
       ),
     ));

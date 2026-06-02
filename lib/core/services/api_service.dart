@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/bill.dart';
+import '../../models/notification_item.dart';
 import '../../models/usage_data.dart';
 
 class ApiService {
@@ -8,7 +9,7 @@ class ApiService {
   ApiService._();
   factory ApiService() => _instance;
 
-  static const String _base = 'http://192.168.88.208:3001/api';
+  static const String _base = 'http://intranet-macmini.local:3001/api';
 
   String? _token;
   String? _userName;
@@ -160,6 +161,31 @@ class ApiService {
       'labels': List<String>.from(data['months'] as List),
       'totals': (data['totals'] as List).map((v) => double.parse(v.toString())).toList(),
     };
+  }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  Future<List<NotificationItem>> getNotifications() async {
+    final res = await http.get(Uri.parse('$_base/notifications'), headers: _headers);
+    final data = _decode(res);
+    return (data['notifications'] as List)
+        .map((j) => NotificationItem.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await http.patch(
+      Uri.parse('$_base/notifications/${Uri.encodeComponent(id)}/read'),
+      headers: _headers,
+    );
+  }
+
+  Future<void> markAllNotificationsRead(List<String> ids) async {
+    await http.patch(
+      Uri.parse('$_base/notifications/read-all'),
+      headers: _headers,
+      body: jsonEncode({'ids': ids}),
+    );
   }
 
   Future<List<Map<String, dynamic>>> getPaymentHistory() async {

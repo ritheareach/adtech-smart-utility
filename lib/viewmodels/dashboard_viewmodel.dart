@@ -11,7 +11,10 @@ class DashboardViewModel extends ChangeNotifier {
   bool loading = false;
   String? error;
 
+  int _loadGen = 0;
+
   Future<void> load() async {
+    final gen = ++_loadGen;
     loading = true;
     error = null;
     notifyListeners();
@@ -22,6 +25,7 @@ class DashboardViewModel extends ChangeNotifier {
         ApiService().getMonthlyTotals(),
         ApiService().loadUserProfile(),
       ]);
+      if (gen != _loadGen) return; // a newer load started; discard this stale result
       final chart = results[2] as Map<String, dynamic>;
       bills = results[0] as List<Bill>;
       summaries = results[1] as List<UsageSummary>;
@@ -29,9 +33,17 @@ class DashboardViewModel extends ChangeNotifier {
       chartTotals = chart['totals'] as List<double>;
       loading = false;
     } catch (e) {
+      if (gen != _loadGen) return;
       error = e.toString();
       loading = false;
     }
+    notifyListeners();
+  }
+
+  // Immediately removes paid bills from the local list so the UI updates
+  // without waiting for the next network load.
+  void removePaidBills(List<String> ids) {
+    bills = bills.where((b) => !ids.contains(b.id)).toList();
     notifyListeners();
   }
 }

@@ -17,7 +17,8 @@ class _BillsTabState extends State<BillsTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BillsViewModel>().load();
+      final vm = context.read<BillsViewModel>();
+      if (!vm.loading) vm.load();
     });
   }
 
@@ -78,17 +79,30 @@ class _BillsTabState extends State<BillsTab> {
                               color: AppColors.textDark),
                         ),
                         const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.orange.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.orange.withValues(alpha: 0.4)),
+                        if (vm.currentBills.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.green.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.green.withValues(alpha: 0.4)),
+                            ),
+                            child: const Text('All Paid',
+                                style: TextStyle(fontSize: 12, color: AppColors.green,
+                                    fontWeight: FontWeight.w600)),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.orange.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.orange.withValues(alpha: 0.4)),
+                            ),
+                            child: const Text('Unpaid',
+                                style: TextStyle(fontSize: 12, color: AppColors.orange,
+                                    fontWeight: FontWeight.w600)),
                           ),
-                          child: const Text('Unpaid',
-                              style: TextStyle(fontSize: 12, color: AppColors.orange,
-                                  fontWeight: FontWeight.w600)),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -165,6 +179,38 @@ class _BillsTabState extends State<BillsTab> {
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
                             color: AppColors.textDark)),
                     const SizedBox(height: 12),
+                    if (vm.currentBills.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44, height: 44,
+                              decoration: BoxDecoration(
+                                color: AppColors.green.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.check_circle_outline,
+                                  size: 24, color: AppColors.green),
+                            ),
+                            const SizedBox(width: 14),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('All bills are paid',
+                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                                          color: AppColors.textDark)),
+                                  SizedBox(height: 2),
+                                  Text('No outstanding bills at this time.',
+                                      style: TextStyle(fontSize: 12, color: AppColors.textGray)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
                     ...vm.currentBills.asMap().entries.map((entry) {
                       final i = entry.key;
                       final bill = entry.value;

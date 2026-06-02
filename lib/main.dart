@@ -5,6 +5,7 @@ import 'viewmodels/dashboard_viewmodel.dart';
 import 'viewmodels/bills_viewmodel.dart';
 import 'viewmodels/analytics_viewmodel.dart';
 import 'viewmodels/payment_viewmodel.dart';
+import 'viewmodels/notifications_viewmodel.dart';
 import 'views/auth/login_screen.dart';
 
 void main() {
@@ -23,6 +24,7 @@ class ADTechApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BillsViewModel()),
         ChangeNotifierProvider(create: (_) => AnalyticsViewModel()),
         ChangeNotifierProvider(create: (_) => PaymentViewModel()),
+        ChangeNotifierProvider(create: (_) => NotificationsViewModel()),
       ],
       child: MaterialApp(
         title: 'ADTech',

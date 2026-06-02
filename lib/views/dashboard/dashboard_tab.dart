@@ -9,7 +9,8 @@ import '../../widgets/adtech_logo.dart';
 import '../payment/payment_screen.dart';
 
 class DashboardTab extends StatefulWidget {
-  const DashboardTab({super.key});
+  final VoidCallback? onGoToNotifications;
+  const DashboardTab({super.key, this.onGoToNotifications});
 
   @override
   State<DashboardTab> createState() => _DashboardTabState();
@@ -20,7 +21,8 @@ class _DashboardTabState extends State<DashboardTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DashboardViewModel>().load();
+      final vm = context.read<DashboardViewModel>();
+      if (!vm.loading) vm.load();
     });
   }
 
@@ -111,7 +113,8 @@ class _DashboardTabState extends State<DashboardTab> {
               if (vm.bills.isNotEmpty)
                 GestureDetector(
                   onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const PaymentScreen())),
+                      MaterialPageRoute(builder: (_) => const PaymentScreen()))
+                    .then((_) { if (context.mounted) vm.load(); }),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
@@ -221,7 +224,8 @@ class _DashboardTabState extends State<DashboardTab> {
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => const PaymentScreen())),
+                              MaterialPageRoute(builder: (_) => const PaymentScreen()))
+                            .then((_) { if (context.mounted) vm.load(); }),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
@@ -268,10 +272,23 @@ class _DashboardTabState extends State<DashboardTab> {
                               Text('Total Bills',
                                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
                                       color: AppColors.textDark)),
-                              Text('Bills in the Last 12 Months',
+                              Text('Last 12 Months',
                                   style: TextStyle(fontSize: 11, color: AppColors.textGray)),
                             ],
                           ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '៛ ${_fmt(vm.chartTotals.fold(0.0, (s, v) => s + v))}',
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold,
+                                  color: AppColors.green),
+                            ),
+                            const Text('total paid',
+                                style: TextStyle(fontSize: 10, color: AppColors.textGray)),
+                          ],
                         ),
                       ],
                     ),
@@ -356,7 +373,10 @@ class _DashboardTabState extends State<DashboardTab> {
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
     centerTitle: true,
     actions: [
-      IconButton(icon: const Icon(Icons.notifications_outlined, color: AppColors.textDark), onPressed: () {}),
+      IconButton(
+        icon: const Icon(Icons.notifications_outlined, color: AppColors.textDark),
+        onPressed: widget.onGoToNotifications,
+      ),
     ],
   );
 
@@ -378,9 +398,15 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  static String _fmt(double v) => v >= 1000
-      ? '${(v / 1000).toStringAsFixed(0)},${(v % 1000).toInt().toString().padLeft(3, '0')}'
-      : v.toInt().toString();
+  static String _fmt(double v) {
+    final s = v.toInt().toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
 }
 
 class _UsageCard extends StatelessWidget {

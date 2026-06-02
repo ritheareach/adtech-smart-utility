@@ -41,10 +41,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
     if (method == 'card') {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CardPaymentScreen(bill: bill)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CardPaymentScreen(bills: [bill])));
     } else {
       Navigator.push(context, MaterialPageRoute(
-          builder: (_) => KhqrScreen(bill: bill, method: method)));
+          builder: (_) => KhqrScreen(bills: [bill], method: method)));
     }
   }
 
