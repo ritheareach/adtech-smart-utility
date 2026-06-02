@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/bill.dart';
-import '../models/usage_data.dart';
+import '../../models/bill.dart';
+import '../../models/usage_data.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._();
   ApiService._();
   factory ApiService() => _instance;
 
-  // 192.168.88.208 = Mac's local IP (works for emulator + physical device on same Wi-Fi)
   static const String _base = 'http://192.168.88.208:3001/api';
 
   String? _token;
@@ -28,7 +27,6 @@ class ApiService {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  /// Returns { success, otp? (dev mode) }
   Future<Map<String, dynamic>> sendOtp(String phone) async {
     final res = await http.post(
       Uri.parse('$_base/auth/login'),
@@ -38,7 +36,6 @@ class ApiService {
     return _decode(res);
   }
 
-  /// Returns { success, token, user }
   Future<Map<String, dynamic>> verifyOtp(String phone, String code) async {
     final res = await http.post(
       Uri.parse('$_base/auth/verify-otp'),
@@ -65,10 +62,7 @@ class ApiService {
   // ── Bills ─────────────────────────────────────────────────────────────────
 
   Future<List<Bill>> getCurrentBills() async {
-    final res = await http.get(
-      Uri.parse('$_base/bills'),
-      headers: _headers,
-    );
+    final res = await http.get(Uri.parse('$_base/bills'), headers: _headers);
     final data = _decode(res);
     return (data['bills'] as List)
         .map((j) => _billFromJson(j as Map<String, dynamic>))
@@ -78,6 +72,17 @@ class ApiService {
   Future<List<Bill>> getBillHistory({int limit = 20, int offset = 0}) async {
     final res = await http.get(
       Uri.parse('$_base/bills/history?limit=$limit&offset=$offset'),
+      headers: _headers,
+    );
+    final data = _decode(res);
+    return (data['bills'] as List)
+        .map((j) => _billFromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<Bill>> getAllBills({int limit = 100}) async {
+    final res = await http.get(
+      Uri.parse('$_base/bills/records?limit=$limit'),
       headers: _headers,
     );
     final data = _decode(res);
@@ -116,9 +121,10 @@ class ApiService {
   Future<Map<String, dynamic>> createPayment({
     required String tranId,
     required double amount,
-    String currency = 'USD',
+    String currency = 'KHR',
     String paymentOption = '',
     List<String> billIds = const [],
+    bool paid = false,
   }) async {
     final res = await http.post(
       Uri.parse('$_base/payments'),
@@ -129,23 +135,21 @@ class ApiService {
         'currency': currency,
         if (paymentOption.isNotEmpty) 'payment_option': paymentOption,
         'bill_ids': billIds,
+        if (paid) 'paid': true,
       }),
     );
     return _decode(res);
   }
 
-  Future<List<Bill>> getAllBills({int limit = 100}) async {
-    final res = await http.get(
-      Uri.parse('$_base/bills/records?limit=$limit'),
+  Future<void> sandboxCompleteBill(List<String> billIds) async {
+    final res = await http.post(
+      Uri.parse('$_base/payments/sandbox/complete'),
       headers: _headers,
+      body: jsonEncode({'bill_ids': billIds}),
     );
-    final data = _decode(res);
-    return (data['bills'] as List)
-        .map((j) => _billFromJson(j as Map<String, dynamic>))
-        .toList();
+    _decode(res);
   }
 
-  /// Returns { 'labels': List<String>, 'totals': List<double> } for the last 12 completed months.
   Future<Map<String, dynamic>> getMonthlyTotals() async {
     final res = await http.get(
       Uri.parse('$_base/bills/monthly-totals'),
@@ -159,10 +163,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getPaymentHistory() async {
-    final res = await http.get(
-      Uri.parse('$_base/payments'),
-      headers: _headers,
-    );
+    final res = await http.get(Uri.parse('$_base/payments'), headers: _headers);
     final data = _decode(res);
     return List<Map<String, dynamic>>.from(data['payments'] as List);
   }
@@ -170,6 +171,10 @@ class ApiService {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Map<String, dynamic> _decode(http.Response res) {
+    final ct = res.headers['content-type'] ?? '';
+    if (!ct.contains('application/json')) {
+      throw Exception('HTTP ${res.statusCode} — server returned non-JSON. Restart the backend.');
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode >= 400) {
       throw Exception(body['error'] ?? 'Request failed (${res.statusCode})');

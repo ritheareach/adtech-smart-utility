@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../config/app_colors.dart';
-import 'dashboard_tab.dart';
-import 'analytics_tab.dart';
-import 'bills_tab.dart';
-import 'notifications_tab.dart';
-import 'more_tab.dart';
+import '../../core/config/app_colors.dart';
+import '../dashboard/dashboard_tab.dart';
+import '../analytics/analytics_tab.dart';
+import '../bills/bills_tab.dart';
+import '../more/notifications_tab.dart';
+import '../more/more_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

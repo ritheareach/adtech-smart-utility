@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../config/app_colors.dart';
+import '../../core/config/app_colors.dart';
 
 class NotificationsTab extends StatelessWidget {
   const NotificationsTab({super.key});
@@ -59,10 +59,8 @@ class NotificationsTab extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Notifications',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
-        ),
+        title: const Text('Notifications',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
         centerTitle: true,
         actions: [
           TextButton(
@@ -88,42 +86,30 @@ class NotificationsTab extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  blurRadius: 8, offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.all(14),
               leading: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: item.bgColor,
-                  shape: BoxShape.circle,
-                ),
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: item.bgColor, shape: BoxShape.circle),
                 child: Icon(item.icon, color: item.color, size: 22),
               ),
               title: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      item.title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: item.unread ? FontWeight.bold : FontWeight.w600,
-                        color: AppColors.textDark,
-                      ),
-                    ),
+                    child: Text(item.title,
+                        style: TextStyle(fontSize: 13,
+                            fontWeight: item.unread ? FontWeight.bold : FontWeight.w600,
+                            color: AppColors.textDark)),
                   ),
                   if (item.unread)
                     Container(
-                      width: 8,
-                      height: 8,
+                      width: 8, height: 8,
                       decoration: const BoxDecoration(
-                        color: AppColors.primaryLight,
-                        shape: BoxShape.circle,
-                      ),
+                          color: AppColors.primaryLight, shape: BoxShape.circle),
                     ),
                 ],
               ),
@@ -156,12 +142,7 @@ class _NotifItem {
   final bool unread;
 
   const _NotifItem({
-    required this.icon,
-    required this.color,
-    required this.bgColor,
-    required this.title,
-    required this.body,
-    required this.time,
-    required this.unread,
+    required this.icon, required this.color, required this.bgColor,
+    required this.title, required this.body, required this.time, required this.unread,
   });
 }

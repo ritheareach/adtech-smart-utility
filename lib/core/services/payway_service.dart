@@ -11,48 +11,21 @@ class PayWayService {
 
   String _reqTime() => DateFormat('yyyyMMddHHmmss').format(DateTime.now());
 
-  // PayWay requires fields concatenated in this exact fixed order.
-  // Empty string is used for any field not provided.
   static const List<String> _hashFieldOrder = [
-    'req_time',
-    'merchant_id',
-    'tran_id',
-    'amount',
-    'items',
-    'shipping',
-    'firstname',
-    'lastname',
-    'email',
-    'phone',
-    'type',
-    'payment_option',
-    'return_url',
-    'cancel_url',
-    'continue_success_url',
-    'return_deeplink',
-    'currency',
-    'custom_fields',
-    'return_params',
-    'payout',
-    'lifetime',
-    'additional_params',
-    'google_pay_token',
-    'skip_success_page',
+    'req_time', 'merchant_id', 'tran_id', 'amount', 'items', 'shipping',
+    'firstname', 'lastname', 'email', 'phone', 'type', 'payment_option',
+    'return_url', 'cancel_url', 'continue_success_url', 'return_deeplink',
+    'currency', 'custom_fields', 'return_params', 'payout', 'lifetime',
+    'additional_params', 'google_pay_token', 'skip_success_page',
   ];
 
-  /// Concatenate fields in PayWay's required order, then HMAC-SHA512 + base64.
   String generateHash(Map<String, String> params) {
-    final payload = _hashFieldOrder
-        .map((field) => params[field] ?? '')
-        .join('');
+    final payload = _hashFieldOrder.map((f) => params[f] ?? '').join('');
     final key = utf8.encode(PayWayConfig.apiKey);
     final digest = Hmac(sha512, key).convert(utf8.encode(payload));
     return base64.encode(digest.bytes);
   }
 
-  // ── Create transaction ─────────────────────────────────────────────────────
-
-  /// POSTs to PayWay and returns parsed checkout data (qrImage, deeplink, etc.)
   Future<PayWayCheckout> createTransaction({
     required String tranId,
     required double amount,
@@ -115,10 +88,6 @@ class PayWayService {
     }
   }
 
-  // ── Card checkout HTML (hosted WebView) ───────────────────────────────────
-
-  /// Builds a self-submitting form loaded in a WebView with a real browser
-  /// User-Agent — PayWay returns their hosted HTML checkout page for browsers.
   Future<String> buildCardCheckoutHtmlAsync({
     required String tranId,
     required double amount,
@@ -168,8 +137,6 @@ class PayWayService {
 </html>''';
   }
 
-  // ── Check transaction ──────────────────────────────────────────────────────
-
   Future<Map<String, dynamic>> checkTransaction(String tranId) async {
     final reqTime = _reqTime();
     final params = <String, String>{
@@ -199,9 +166,6 @@ class PayWayService {
     }
   }
 
-  // ── Callback verification ──────────────────────────────────────────────────
-
-  /// Verify the X_PAYWAY_HMAC_SHA512 header from PayWay's callback.
   bool verifyCallback(Map<String, dynamic> payload, String receivedSignature) {
     final sorted = Map.fromEntries(
       payload.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
@@ -214,8 +178,6 @@ class PayWayService {
     return base64.encode(digest.bytes) == receivedSignature;
   }
 }
-
-// ── Data model ────────────────────────────────────────────────────────────────
 
 class PayWayCheckout {
   final String tranId;
@@ -238,7 +200,6 @@ class PayWayCheckout {
     required this.appStoreUrl,
   });
 
-  // Base64 portion of the qrImage data URI
   String get qrImageBase64 {
     const prefix = 'data:image/png;base64,';
     return qrImage.startsWith(prefix) ? qrImage.substring(prefix.length) : qrImage;

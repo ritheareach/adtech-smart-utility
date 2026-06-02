@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
-import '../config/app_colors.dart';
-import 'login_screen.dart';
+import '../../core/config/app_colors.dart';
+import '../../core/services/api_service.dart';
+import '../auth/login_screen.dart';
 
 class MoreTab extends StatelessWidget {
   const MoreTab({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final userName = ApiService().userName;
+    final unitNumber = ApiService().unitNumber;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'More',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
-        ),
+        title: const Text('More',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -34,8 +36,7 @@ class MoreTab extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 56, height: 56,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
@@ -43,15 +44,17 @@ class MoreTab extends StatelessWidget {
                     child: const Icon(Icons.person, color: Colors.white, size: 32),
                   ),
                   const SizedBox(width: 14),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('User112',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('user1@gmail.com',
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      SizedBox(height: 4),
-                      Text('123 Business Ave, Russey Keo',
+                      Text(userName,
+                          style: const TextStyle(color: Colors.white, fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                      if (unitNumber.isNotEmpty)
+                        Text('Unit $unitNumber',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      const Text('Phnom Penh',
                           style: TextStyle(color: Colors.white70, fontSize: 11)),
                     ],
                   ),
@@ -60,7 +63,6 @@ class MoreTab extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Menu items
             const _MenuSection(title: 'Account', items: [
               _MenuItem(icon: Icons.person_outline, label: 'Profile'),
               _MenuItem(icon: Icons.lock_outline, label: 'Change Password'),
@@ -79,7 +81,6 @@ class MoreTab extends StatelessWidget {
             ]),
             const SizedBox(height: 16),
 
-            // Sign out
             GestureDetector(
               onTap: () => Navigator.pushAndRemoveUntil(
                 context,
@@ -100,13 +101,15 @@ class MoreTab extends StatelessWidget {
                     Icon(Icons.logout, color: AppColors.red, size: 20),
                     SizedBox(width: 8),
                     Text('Sign Out',
-                        style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w600, fontSize: 14)),
+                        style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w600,
+                            fontSize: 14)),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            const Text('ADTech v1.0.0', style: TextStyle(fontSize: 12, color: AppColors.textGray)),
+            const Text('ADTech v1.0.0',
+                style: TextStyle(fontSize: 12, color: AppColors.textGray)),
             const SizedBox(height: 8),
           ],
         ),
@@ -128,7 +131,8 @@ class _MenuSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(title,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textGray)),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                  color: AppColors.textGray)),
         ),
         Container(
           decoration: BoxDecoration(
@@ -137,8 +141,7 @@ class _MenuSection extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                blurRadius: 8, offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -151,8 +154,7 @@ class _MenuSection extends StatelessWidget {
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
                     leading: Container(
-                      width: 36,
-                      height: 36,
+                      width: 36, height: 36,
                       decoration: BoxDecoration(
                         color: AppColors.background,
                         borderRadius: BorderRadius.circular(8),

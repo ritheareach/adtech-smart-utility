@@ -2,15 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../config/app_colors.dart';
-import '../config/payway_config.dart';
-import '../models/bill.dart';
-import '../services/payway_service.dart';
+import 'package:provider/provider.dart';
+import '../../core/config/app_colors.dart';
+import '../../core/config/payway_config.dart';
+import '../../models/bill.dart';
+import '../../viewmodels/payment_viewmodel.dart';
+import '../../core/services/payway_service.dart';
 import 'payment_result_screen.dart';
 
 class KhqrScreen extends StatefulWidget {
   final Bill bill;
-  final String method; // 'aba_khqr' | 'alipay' | 'wechat'
+  final String method;
 
   const KhqrScreen({super.key, required this.bill, required this.method});
 
@@ -25,14 +27,13 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
   bool _loading = true;
   Timer? _pollTimer;
   int _pollCount = 0;
-  static const int _maxPolls = 60; // 3 min
+  static const int _maxPolls = 60;
 
-  // Maps our internal method name to the PayWay payment_option field value.
   String get _paymentOption {
     switch (widget.method) {
       case 'alipay': return 'alipay';
       case 'wechat': return 'wechat';
-      default: return ''; // aba_khqr — omitting lets PayWay return KHQR
+      default: return '';
     }
   }
 
@@ -51,8 +52,6 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // Resume polling when the user returns to the app after scanning in their
-  // banking app — without this, a backgrounded app would miss the payment.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
@@ -90,10 +89,7 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
 
   Future<void> _checkStatus() async {
     _pollCount++;
-    if (_pollCount >= _maxPolls) {
-      _pollTimer?.cancel();
-      return;
-    }
+    if (_pollCount >= _maxPolls) { _pollTimer?.cancel(); return; }
     try {
       final result = await PayWayService().checkTransaction(_tranId);
       if (!mounted) return;
@@ -108,31 +104,50 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
         final String code = statusRaw is Map
             ? statusRaw['code']?.toString() ?? ''
             : statusRaw?.toString() ?? '';
+        final String paymentStatus =
+            (data['payment_status'] as String? ?? '').toUpperCase();
 
         if (PayWayConfig.isSandbox) {
-          debugPrint('[PayWay] status.code = "$code"');
+          debugPrint('[PayWay] status.code="$code" payment_status="$paymentStatus"');
         }
 
-        const successCodes = {'0', '00'};
+        const successCodes = {'0', '00', '1'};
+        const successStatuses = {'PAID', 'APPROVED', 'SUCCESS'};
         const failCodes = {'200', '201'};
-        if (successCodes.contains(code)) {
+        const failStatuses = {'FAILED', 'CANCELLED', 'CANCELED', 'DECLINED'};
+
+        final isSuccess = successCodes.contains(code) || successStatuses.contains(paymentStatus);
+        final isFail = failCodes.contains(code) || failStatuses.contains(paymentStatus);
+
+        if (isSuccess) {
           _pollTimer?.cancel();
-          _navigateToResult(success: true);
-        } else if (failCodes.contains(code)) {
+          await _navigateToResult(success: true);
+        } else if (isFail) {
           _pollTimer?.cancel();
-          _navigateToResult(success: false);
+          await _navigateToResult(success: false);
         }
       }
     } catch (_) {}
   }
 
-  void _navigateToResult({required bool success}) {
+  Future<void> _navigateToResult({required bool success}) async {
+    String? syncError;
+    if (success) {
+      syncError = await context.read<PaymentViewModel>().recordPayment(
+        tranId: _tranId,
+        amount: widget.bill.amount,
+        billIds: [widget.bill.id],
+        paymentOption: _paymentOption,
+      );
+    }
+    if (!mounted) return;
     Navigator.pushReplacement(context, MaterialPageRoute(
       builder: (_) => PaymentResultScreen(
         success: success,
         tranId: _tranId,
         total: widget.bill.amount,
         bills: [widget.bill],
+        syncError: syncError,
       ),
     ));
   }
@@ -185,7 +200,8 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(_title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                color: AppColors.textDark)),
         centerTitle: true,
       ),
       body: _buildBody(),
@@ -215,7 +231,8 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
               const Icon(Icons.error_outline, size: 64, color: AppColors.red),
               const SizedBox(height: 16),
               const Text('Failed to Create Payment',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold,
+                      color: AppColors.textDark)),
               const SizedBox(height: 8),
               Text(_error!, textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 13, color: AppColors.textGray)),
@@ -240,16 +257,30 @@ class _KhqrScreenState extends State<KhqrScreen> with WidgetsBindingObserver {
       pollCount: _pollCount,
       maxPolls: _maxPolls,
       onOpenAba: widget.method == 'aba_khqr' ? _openAbaApp : null,
-      onSimulate: () {
+      onSimulate: () async {
         _pollTimer?.cancel();
-        _navigateToResult(success: true);
+        setState(() => _loading = true);
+        final vm = context.read<PaymentViewModel>();
+        final sandboxError = await vm.sandboxComplete([widget.bill.id]);
+        if (!mounted) return;
+        if (sandboxError == null) {
+          Navigator.pushReplacement(context, MaterialPageRoute(
+            builder: (_) => PaymentResultScreen(
+              success: true,
+              tranId: _tranId,
+              total: widget.bill.amount,
+              bills: [widget.bill],
+            ),
+          ));
+        } else {
+          debugPrint('[Sandbox] sandboxComplete failed: $sandboxError — falling back to createPayment');
+          await _navigateToResult(success: true);
+        }
       },
       onCancel: () => Navigator.pop(context),
     );
   }
 }
-
-// ── Checkout view ─────────────────────────────────────────────────────────────
 
 class _CheckoutView extends StatelessWidget {
   final PayWayCheckout checkout;
@@ -264,16 +295,10 @@ class _CheckoutView extends StatelessWidget {
   final VoidCallback onCancel;
 
   const _CheckoutView({
-    required this.checkout,
-    required this.bill,
-    required this.method,
-    required this.accentColor,
-    required this.instruction,
-    required this.pollCount,
-    required this.maxPolls,
-    this.onOpenAba,
-    required this.onSimulate,
-    required this.onCancel,
+    required this.checkout, required this.bill, required this.method,
+    required this.accentColor, required this.instruction,
+    required this.pollCount, required this.maxPolls,
+    this.onOpenAba, required this.onSimulate, required this.onCancel,
   });
 
   @override
@@ -285,13 +310,11 @@ class _CheckoutView extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          // Amount banner
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
             decoration: BoxDecoration(
-              color: accentColor,
-              borderRadius: BorderRadius.circular(14),
+              color: accentColor, borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               children: [
@@ -299,7 +322,8 @@ class _CheckoutView extends StatelessWidget {
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 4),
                 Text('${_fmtKhr(bill.amount)} ៛',
-                    style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(color: Colors.white, fontSize: 30,
+                        fontWeight: FontWeight.bold)),
                 Text('≈ \$${(bill.amount / 4100).toStringAsFixed(2)} USD',
                     style: const TextStyle(color: Colors.white60, fontSize: 12)),
               ],
@@ -307,7 +331,6 @@ class _CheckoutView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // QR card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -315,28 +338,23 @@ class _CheckoutView extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.07),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.07),
+                    blurRadius: 14, offset: const Offset(0, 4)),
               ],
             ),
             child: Column(
               children: [
                 const Text('Scan to Pay',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
+                        color: AppColors.textDark)),
                 const SizedBox(height: 4),
                 Text(
                   method == 'aba_khqr'
                       ? 'ABA Mobile, any KHQR-supported app'
-                      : method == 'alipay'
-                          ? 'Open Alipay → Scan'
-                          : 'Open WeChat → Scan',
+                      : method == 'alipay' ? 'Open Alipay → Scan' : 'Open WeChat → Scan',
                   style: const TextStyle(fontSize: 12, color: AppColors.textGray),
                 ),
                 const SizedBox(height: 16),
-                // Real QR from PayWay API
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -347,26 +365,20 @@ class _CheckoutView extends StatelessWidget {
                   child: Image.memory(qrBytes, width: 200, height: 200),
                 ),
                 const SizedBox(height: 12),
-                // Polling indicator + timer
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryLight),
-                    ),
+                    const SizedBox(width: 12, height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2,
+                            color: AppColors.primaryLight)),
                     const SizedBox(width: 6),
                     const Text('Waiting for payment... ',
                         style: TextStyle(fontSize: 12, color: AppColors.textGray)),
                     const Icon(Icons.timer_outlined, size: 13, color: AppColors.textGray),
                     const SizedBox(width: 3),
                     Text('${secondsLeft}s',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: secondsLeft < 30 ? AppColors.orange : AppColors.textGray,
-                        )),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                            color: secondsLeft < 30 ? AppColors.orange : AppColors.textGray)),
                   ],
                 ),
               ],
@@ -374,12 +386,10 @@ class _CheckoutView extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          Text(instruction,
-              textAlign: TextAlign.center,
+          Text(instruction, textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: AppColors.textGray, height: 1.5)),
           const SizedBox(height: 20),
 
-          // Open ABA Mobile button (only for aba_khqr)
           if (onOpenAba != null && checkout.abaPayDeeplink.isNotEmpty) ...[
             SizedBox(
               width: double.infinity,
@@ -398,16 +408,12 @@ class _CheckoutView extends StatelessWidget {
             const SizedBox(height: 10),
           ],
 
-          // Payment badges
           const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _Badge('KHQR'),
-              SizedBox(width: 8),
-              _Badge('ABA Pay'),
-              SizedBox(width: 8),
-              _Badge('WeChat'),
-              SizedBox(width: 8),
+              _Badge('KHQR'), SizedBox(width: 8),
+              _Badge('ABA Pay'), SizedBox(width: 8),
+              _Badge('WeChat'), SizedBox(width: 8),
               _Badge('Alipay'),
             ],
           ),
@@ -427,7 +433,6 @@ class _CheckoutView extends StatelessWidget {
             ),
           ),
 
-          // Sandbox test button
           if (PayWayConfig.isSandbox) ...[
             const SizedBox(height: 16),
             const Divider(),
@@ -467,12 +472,12 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textGray)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textGray)),
+  );
 }
