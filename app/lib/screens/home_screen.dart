@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+import '../config/app_colors.dart';
+import 'dashboard_tab.dart';
+import 'analytics_tab.dart';
+import 'bills_tab.dart';
+import 'notifications_tab.dart';
+import 'more_tab.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+
+  final _tabs = const [
+    DashboardTab(),
+    AnalyticsTab(),
+    BillsTab(),
+    NotificationsTab(),
+    MoreTab(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _tabs[_currentIndex],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.navBg,
+          boxShadow: [
+            BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, -4)),
+          ],
+        ),
+        child: SafeArea(
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (i) => setState(() => _currentIndex = i),
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: AppColors.primaryLight,
+            unselectedItemColor: AppColors.textGray,
+            selectedFontSize: 11,
+            unselectedFontSize: 11,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+              BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), activeIcon: Icon(Icons.bar_chart), label: 'Analytics'),
+              BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Bills'),
+              BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), activeIcon: Icon(Icons.notifications), label: 'Notifications'),
+              BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
