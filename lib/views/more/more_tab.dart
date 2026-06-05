@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/config/app_colors.dart';
 import '../../core/services/api_service.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/notifications_viewmodel.dart';
 import '../auth/login_screen.dart';
 
 class MoreTab extends StatelessWidget {
@@ -168,6 +169,7 @@ class MoreTab extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
+              context.read<NotificationsViewModel>().reset();
               context.read<AuthViewModel>().logout();
               Navigator.pushAndRemoveUntil(
                 context,

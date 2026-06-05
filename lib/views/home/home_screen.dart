@@ -29,6 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const NotificationsTab(),
       MoreTab(onNavigate: _navigateTo),
     ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationsViewModel>().load();
+    });
   }
 
   void _navigateTo(int index) => setState(() => _currentIndex = index);

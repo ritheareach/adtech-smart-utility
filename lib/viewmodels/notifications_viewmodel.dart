@@ -9,8 +9,18 @@ class NotificationsViewModel extends ChangeNotifier {
 
   bool get hasUnread => items.any((n) => !n.read);
   int get unreadCount => items.where((n) => !n.read).length;
+  bool get hasPaymentDue => items.any(
+      (n) => n.type == 'payment_due' || n.type == 'payment_overdue');
+
+  void reset() {
+    items = [];
+    loading = false;
+    error = null;
+    notifyListeners();
+  }
 
   Future<void> load() async {
+    if (loading) return;
     loading = true;
     error = null;
     notifyListeners();

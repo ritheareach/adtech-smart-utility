@@ -5,6 +5,7 @@ import '../../core/config/app_colors.dart';
 import '../../core/services/api_service.dart';
 import '../../models/usage_data.dart';
 import '../../viewmodels/dashboard_viewmodel.dart';
+import '../../viewmodels/notifications_viewmodel.dart';
 import '../../widgets/adtech_logo.dart';
 import '../payment/payment_screen.dart';
 
@@ -59,6 +60,7 @@ class _DashboardTabState extends State<DashboardTab> {
     final prevMonth = now.month == 1 ? 12 : now.month - 1;
     final prevYear = now.month == 1 ? now.year - 1 : now.year;
     final periodLabel = '${monthNames[prevMonth - 1]} $prevYear';
+    const compareLabel = 'vs last month';
 
     final hour = now.hour;
     final tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
@@ -110,7 +112,7 @@ class _DashboardTabState extends State<DashboardTab> {
               const SizedBox(height: 12),
 
               // Payment alert
-              if (vm.bills.isNotEmpty)
+              if (context.watch<NotificationsViewModel>().hasPaymentDue)
                 GestureDetector(
                   onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const PaymentScreen()))
@@ -165,7 +167,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   mainAxisSpacing: 10,
                   childAspectRatio: 1.55,
                   children: vm.summaries
-                      .map((s) => _UsageCard(summary: s, periodLabel: periodLabel))
+                      .map((s) => _UsageCard(summary: s, periodLabel: periodLabel, compareLabel: compareLabel))
                       .toList(),
                 ),
               const SizedBox(height: 18),
@@ -185,31 +187,29 @@ class _DashboardTabState extends State<DashboardTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Usage — $periodLabel',
+                          Text('Bill Breakdown — $periodLabel',
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
                                   color: AppColors.textDark)),
                           const SizedBox(height: 10),
-                          ...vm.summaries.map((s) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
+                          ...vm.bills.map((b) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: Row(
                               children: [
-                                Icon(_typeIcon(s.type), size: 16, color: _typeColor(s.type)),
+                                Icon(_typeIcon(b.type), size: 16, color: _typeColor(b.type)),
                                 const SizedBox(width: 6),
-                                Text('${s.value.toInt()} ${s.unit}',
+                                Text(b.type,
                                     style: const TextStyle(fontSize: 12, color: AppColors.textDark)),
-                                const SizedBox(width: 4),
-                                Icon(s.isUp ? Icons.arrow_upward : Icons.arrow_downward,
-                                    size: 10, color: s.isUp ? AppColors.red : AppColors.green),
-                                Text('${s.changePercent}%',
-                                    style: TextStyle(fontSize: 10,
-                                        color: s.isUp ? AppColors.red : AppColors.green,
-                                        fontWeight: FontWeight.w600)),
+                                const Spacer(),
+                                Text('៛ ${_fmt(b.amount)}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textDark,
+                                        fontWeight: FontWeight.w500)),
                               ],
                             ),
                           )),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Container(width: 1, height: 110, color: AppColors.border),
                     const SizedBox(width: 16),
                     Column(
@@ -412,7 +412,8 @@ class _DashboardTabState extends State<DashboardTab> {
 class _UsageCard extends StatelessWidget {
   final UsageSummary summary;
   final String periodLabel;
-  const _UsageCard({required this.summary, this.periodLabel = 'Last month'});
+  final String compareLabel;
+  const _UsageCard({required this.summary, this.periodLabel = 'Last month', this.compareLabel = 'vs prev month'});
 
   @override
   Widget build(BuildContext context) {
@@ -431,10 +432,13 @@ class _UsageCard extends StatelessWidget {
             children: [
               Icon(_icon, size: 20, color: _color),
               const SizedBox(width: 6),
-              Text(summary.type,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                      color: AppColors.textDark)),
-              const Spacer(),
+              Expanded(
+                child: Text(summary.type,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                        color: AppColors.textDark)),
+              ),
+              const SizedBox(width: 4),
               Text('${summary.value.toInt()} ${summary.unit}',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
                       color: AppColors.textDark)),
@@ -443,7 +447,7 @@ class _UsageCard extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              Text(periodLabel, style: const TextStyle(fontSize: 10, color: AppColors.textGray)),
+              Text(compareLabel, style: const TextStyle(fontSize: 10, color: AppColors.textGray)),
               const SizedBox(width: 4),
               Icon(summary.isUp ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 10, color: summary.isUp ? AppColors.red : AppColors.green),

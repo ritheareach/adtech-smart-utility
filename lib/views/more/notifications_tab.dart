@@ -16,7 +16,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationsViewModel>().load();
+      final vm = context.read<NotificationsViewModel>();
+      if (vm.items.isEmpty && !vm.loading) vm.load();
     });
   }
 
